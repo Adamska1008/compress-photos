@@ -1,6 +1,6 @@
 # Compress Photos
 
-```
+```plaintext
 Usage: compress-photos.exe [OPTIONS] [filename]
 
 Arguments:
