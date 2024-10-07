@@ -4,11 +4,12 @@
 Usage: compress-photos.exe [OPTIONS] [filename]
 
 Arguments:
-  [filename]  Specify the filename to compress
+  [filename]  Specify the filename to compress.
+              If not specified, all files in the current directory will be compressed
 
 Options:
-  -m, --max_min <MAX_MIN>  Specify the max min [default: 1200]
-  -q, --quality <QUALITY>  Specify the quality [default: 75]
-  -h, --help               Print help
-  -V, --version            Print version
+  -b, --bound <BOUND>  Specify the upper limit of two dimensions of image.
+                       Always keep the aspect ratio of the image. [default: 1600,1600]
+  -h, --help           Print help
+  -V, --version        Print version
 ```

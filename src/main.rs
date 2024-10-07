@@ -1,16 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    process::exit,
-    str::FromStr,
-};
+use std::str::FromStr;
 
-use clap::{arg, command, value_parser, Command};
-use image::{
-    codecs::{jpeg::JpegEncoder, png::PngEncoder},
-    ColorType, GenericImageView, ImageEncoder, ImageReader,
-};
+use clap::{arg, command, Command};
+use image::{GenericImageView, ImageReader};
 use log::info;
 use simple_logger::SimpleLogger;
+use std::path::PathBuf;
 
 // The upper limit of the width and height of the image
 #[derive(Debug, Clone, Copy)]
@@ -63,9 +57,9 @@ fn compress_one(
 
 fn cli() -> Command {
     command!()
-        .arg(arg!([filename] "Specify the filename to compress"))
+        .arg(arg!([filename] "Specify the filename to compress.\nIf not specified, all files in the current directory will be compressed"))
         .arg(
-            arg!(-b --bound <BOUND> "Specify the bound of image")
+            arg!(-b --bound <BOUND> "Specify the upper limit of two dimensions of image.\nAlways keep the aspect ratio of the image.")
                 .value_parser(Bound::from_str)
                 .default_value("1600,1600"),
         )
@@ -80,12 +74,12 @@ fn init_logger() {
 
 fn main() -> Result<(), image::ImageError> {
     init_logger();
-    let ext_to_check = ["jpg", "png", "jpeg"];
+    const EXT_TO_CHECK: [&str; 3] = ["jpg", "png", "jpeg"];
     let matches = cli().get_matches();
     let bound = matches.get_one::<Bound>("bound").unwrap();
 
+    // collect all file path
     let mut paths = vec![];
-
     if let Some(filename) = matches.get_one::<String>("filename") {
         paths.push(PathBuf::from(filename));
     } else {
@@ -107,7 +101,7 @@ fn main() -> Result<(), image::ImageError> {
 
     for path in paths {
         let ext = path.extension().unwrap_or_default().to_str().unwrap();
-        if !ext_to_check.contains(&ext) {
+        if !EXT_TO_CHECK.contains(&ext) {
             continue;
         }
 
