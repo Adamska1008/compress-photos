@@ -1,37 +1,20 @@
-use clap::{
-    arg,
-    builder::{TypedValueParser, ValueParserFactory},
-    command, value_parser,
-};
+use std::str::FromStr;
+
+use clap::{arg, builder::ValueParser, command, value_parser, Command};
 use image::{GenericImageView, ImageReader};
 
 // The upper limit of the width and height of the image
 #[derive(Debug, Clone, Copy)]
 struct Bound(Option<u32>, Option<u32>);
 
-impl ValueParserFactory for Bound {
-    type Parser = BoundParser;
+impl FromStr for Bound {
+    type Err = String;
 
-    fn value_parser() -> Self::Parser {
-        BoundParser {}
-    }
-}
-
-#[derive(Debug, Clone)]
-struct BoundParser {}
-
-impl TypedValueParser for BoundParser {
-    type Value = Bound;
-
-    // TODO: error handling
-    fn parse_ref(
-        &self,
-        cmd: &clap::Command,
-        arg: Option<&clap::Arg>,
-        value: &std::ffi::OsStr,
-    ) -> Result<Self::Value, clap::Error> {
-        let s = value.to_str().unwrap();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts = s.split(',').collect::<Vec<&str>>();
+        if parts.len() != 2 {
+            return Err("Invalid bound format".to_string());
+        }
         let w = parts[0].parse::<u32>().ok();
         let h = parts[1].parse::<u32>().ok();
         Ok(Bound(w, h))
@@ -79,12 +62,12 @@ fn compress_one(filename: &str, strategy: &Strategy, quality: u8) -> Result<(), 
     Ok(())
 }
 
-fn main() -> Result<(), image::ImageError> {
-    let matches = command!()
+fn cli() -> Command {
+    command!()
         .arg(arg!([filename] "Specify the filename to compress"))
         .arg(
             arg!(-b --bound <BOUND> "Specify the bound of image")
-                .value_parser(BoundParser {})
+                .value_parser(Bound::from_str)
                 .default_value("1600,1600"),
         )
         .arg(
@@ -92,7 +75,10 @@ fn main() -> Result<(), image::ImageError> {
                 .value_parser(value_parser!(u8))
                 .default_value("75"),
         )
-        .get_matches();
+}
+
+fn main() -> Result<(), image::ImageError> {
+    let matches = cli().get_matches();
     let bound = matches.get_one::<Bound>("bound").unwrap();
     let quality = matches.get_one::<u8>("quality").unwrap();
     if let Some(filename) = matches.get_one::<String>("filename") {
