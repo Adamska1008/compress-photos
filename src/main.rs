@@ -1,7 +1,14 @@
-use std::str::FromStr;
+use std::{
+    path::{Path, PathBuf},
+    process::exit,
+    str::FromStr,
+};
 
 use clap::{arg, command, value_parser, Command};
-use image::{GenericImageView, ImageReader};
+use image::{
+    codecs::{jpeg::JpegEncoder, png::PngEncoder},
+    ColorType, GenericImageView, ImageEncoder, ImageReader,
+};
 use log::info;
 use simple_logger::SimpleLogger;
 
@@ -42,21 +49,16 @@ impl Strategy {
     }
 }
 
-fn compress_one(filename: &str, strategy: &Strategy, quality: u8) -> Result<(), image::ImageError> {
+fn compress_one(
+    filename: &str,
+    strategy: &Strategy,
+) -> Result<image::DynamicImage, image::ImageError> {
     let img = ImageReader::open(filename)?.decode()?;
     info!("Compressing {} size: {:?}", filename, img.dimensions());
     let resized = strategy.apply(&img);
     // If dir not exists, create it
-    if !std::path::Path::new("./compacted").exists() {
-        std::fs::create_dir("./compacted")?;
-    }
-    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(
-        std::fs::File::create(format!("./compacted/{}", filename))?,
-        quality,
-    );
-    encoder.encode_image(&resized)?;
     info!("Compressed {} to size {:?}", filename, resized.dimensions());
-    Ok(())
+    Ok(resized)
 }
 
 fn cli() -> Command {
@@ -67,34 +69,59 @@ fn cli() -> Command {
                 .value_parser(Bound::from_str)
                 .default_value("1600,1600"),
         )
-        .arg(
-            arg!(-q --quality <QUALITY> "Specify the quality")
-                .value_parser(value_parser!(u8))
-                .default_value("75"),
-        )
 }
 
 fn init_logger() {
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new()
+        .init()
+        .map_err(|e| eprintln!("Failed to initialize logger: {}", e))
+        .unwrap();
 }
 
 fn main() -> Result<(), image::ImageError> {
     init_logger();
+    let ext_to_check = ["jpg", "png", "jpeg"];
     let matches = cli().get_matches();
     let bound = matches.get_one::<Bound>("bound").unwrap();
-    let quality = matches.get_one::<u8>("quality").unwrap();
+
+    let mut paths = vec![];
+
     if let Some(filename) = matches.get_one::<String>("filename") {
-        compress_one(filename, &Strategy::Bound(*bound), *quality)?;
+        paths.push(PathBuf::from(filename));
     } else {
         // compress all file in the dir
         let files = std::fs::read_dir("./")?;
         for file in files {
             let file = file?;
-            let path = file.path();
-            if path.is_file() && path.extension().unwrap_or_default() == "jpg" {
-                compress_one(path.to_str().unwrap(), &Strategy::Bound(*bound), *quality)?;
+            if file.path().is_file() {
+                paths.push(file.path());
             }
         }
+    }
+
+    if !std::path::Path::new("compacted").exists() {
+        std::fs::create_dir("compacted").unwrap();
+    }
+
+    let compacted_path = PathBuf::from("compacted");
+
+    for path in paths {
+        let ext = path.extension().unwrap_or_default().to_str().unwrap();
+        if !ext_to_check.contains(&ext) {
+            continue;
+        }
+
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let save_path = compacted_path.join(file_name);
+        let resized = compress_one(path.to_str().unwrap(), &Strategy::Bound(*bound))?;
+        resized.save_with_format(
+            save_path,
+            if ext == "jpg" || ext == "jpeg" {
+                image::ImageFormat::Jpeg
+            } else {
+                image::ImageFormat::Png
+            },
+        )?;
     }
     Ok(())
 }
