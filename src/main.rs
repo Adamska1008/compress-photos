@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
-use clap::{arg, builder::ValueParser, command, value_parser, Command};
+use clap::{arg, command, value_parser, Command};
 use image::{GenericImageView, ImageReader};
+use log::info;
+use simple_logger::SimpleLogger;
 
 // The upper limit of the width and height of the image
 #[derive(Debug, Clone, Copy)]
@@ -41,8 +43,8 @@ impl Strategy {
 }
 
 fn compress_one(filename: &str, strategy: &Strategy, quality: u8) -> Result<(), image::ImageError> {
-    println!("Compressing {}", filename);
     let img = ImageReader::open(filename)?.decode()?;
+    info!("Compressing {} size: {:?}", filename, img.dimensions());
     let resized = strategy.apply(&img);
     // If dir not exists, create it
     if !std::path::Path::new("./compacted").exists() {
@@ -53,12 +55,7 @@ fn compress_one(filename: &str, strategy: &Strategy, quality: u8) -> Result<(), 
         quality,
     );
     encoder.encode_image(&resized)?;
-    println!(
-        "Compressed {} from {:?} to {:?}",
-        filename,
-        img.dimensions(),
-        resized.dimensions()
-    );
+    info!("Compressed {} to size {:?}", filename, resized.dimensions());
     Ok(())
 }
 
@@ -77,7 +74,12 @@ fn cli() -> Command {
         )
 }
 
+fn init_logger() {
+    SimpleLogger::new().init().unwrap();
+}
+
 fn main() -> Result<(), image::ImageError> {
+    init_logger();
     let matches = cli().get_matches();
     let bound = matches.get_one::<Bound>("bound").unwrap();
     let quality = matches.get_one::<u8>("quality").unwrap();

@@ -7,3 +7,4 @@ edition = "2021"
 image = { version = "0.25.2", features = ["jpeg"] }
 clap = { version = "4.5.19", features = ["cargo"] }
 log = "0.4.22"
+simple_logger = "5.0.0"
