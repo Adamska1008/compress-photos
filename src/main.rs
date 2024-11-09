@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fs, io::BufReader, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use clap::{arg, command, Command};
@@ -83,6 +83,8 @@ fn encode_with_quality(
     }
 }
 
+fn inject_exif(path: impl Into<PathBuf>) {}
+
 fn cli() -> Command {
     command!()
         .arg(arg!([filename] "Specify the filename to compress.\nIf not specified, all files in the current directory will be compressed"))
@@ -117,7 +119,7 @@ fn main() -> Result<()> {
     if let Some(filename) = matches.get_one::<String>("filename") {
         paths.push(PathBuf::from(filename));
     } else {
-        // compress all file in the dir
+        // will compress all file in the dir
         let files = std::fs::read_dir("./")?;
         for file in files {
             let file = file?;
@@ -131,7 +133,7 @@ fn main() -> Result<()> {
         std::fs::create_dir("compacted")?;
     }
 
-    let compacted_path = PathBuf::from("compacted");
+    let compacted_dir_path = PathBuf::from("compacted");
 
     for path in paths {
         let ext = path.extension().unwrap_or_default().to_str().unwrap();
@@ -144,10 +146,12 @@ fn main() -> Result<()> {
             image::ImageFormat::Png
         };
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        let save_path = compacted_path.join(file_name);
+        let save_path = compacted_dir_path.join(file_name);
         let img = ImageReader::open(&path)?.decode()?;
+        let metadata = little_exif::metadata::Metadata::new_from_path(&path)?;
         let resized = Strategy::Bound(*bound).apply(&img);
-        encode_with_quality(&resized, save_path, quality, format)?;
+        encode_with_quality(&resized, &save_path, quality, format)?;
+        metadata.write_to_file(&save_path)?;
     }
     Ok(())
 }

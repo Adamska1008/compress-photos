@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 image = { version = "0.25.2", features = ["jpeg"] }
+little_exif = "0.6.2"
 clap = { version = "4.5.19", features = ["cargo"] }
 log = "0.4.22"
 simple_logger = "5.0.0"
